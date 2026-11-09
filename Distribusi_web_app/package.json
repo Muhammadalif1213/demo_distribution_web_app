@@ -1,0 +1,7 @@
+{
+  "name": "distributor-management-system",
+  "version": "0.7.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "dev": "python3 -m http.server 5173 --bind 127.0.0.1", "test": "node --test" }
+}
