@@ -41,7 +41,6 @@ export function createSeed() {
       unit: "kg",
       cost: 12000,
       price: 20000,
-      stock: 240,
     },
     {
       id: "pangsit",
@@ -49,7 +48,6 @@ export function createSeed() {
       unit: "pak",
       cost: 9000,
       price: 15000,
-      stock: 180,
     },
   ];
   const distributions = Array.from({ length: 40 }, (_, i) => {

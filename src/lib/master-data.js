@@ -81,10 +81,8 @@ export function saveProduct(data, values, id) {
     data.products.push({
       id: nextId(data.products, "P"),
       ...record,
-      stock: 0,
       active: true,
     });
-  if(!existing&&data.inventory)data.inventory.opening[data.products.at(-1).id]=0;
   return existing || data.products.at(-1);
 }
 function nextId(records, prefix) {

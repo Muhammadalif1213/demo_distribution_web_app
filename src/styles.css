@@ -35,3 +35,6 @@
 @media(max-width:450px){.distribution-entry-panel{padding:18px 14px}.distribution-mode-options{grid-template-columns:1fr;gap:9px}.distribution-mode{padding:13px}.distribution-mode small{font-size:9px}.distribution-mode strong{font-size:11px}.entry-date-fields{grid-template-columns:1fr;gap:13px}#single-date-fields{grid-template-columns:1fr}.distribution-price-list{gap:9px}.distribution-product-price{padding:12px 10px}.distribution-product-price input{padding:10px 8px;font-size:11px}.distribution-product-price>strong{font-size:10px;line-height:1.7;min-height:34px}.distribution-product-price>small{line-height:1.8}.distribution-entry-summary strong{font-size:18px}.distribution-entry-summary small{font-size:8px}.distribution-entry-actions{gap:7px;flex-wrap:wrap}.distribution-entry-actions .button{font-size:9px;padding:9px 10px;min-height:37px}.distribution-entry-table tbody th{font-size:11px}.entry-step-heading p{font-size:9px}.entry-step-heading>span{height:25px;width:25px;font-size:10px}}
 
 .distribution-product-price>strong,.distribution-entry-table td[data-product-label]::before{overflow-wrap:anywhere}
+
+/* The activity list fills the space formerly used by inventory. */
+.bottom-grid{grid-template-columns:minmax(0,1fr)}

@@ -1,7 +1,6 @@
 import {date as formatDate} from './format.js';
 import {today,validDate} from './dates.js';
 export {today,validDate} from './dates.js';
-import {inventorySummary} from './inventory.js';
 import {money,sellingPrice} from './master-data.js';
 import {distributionTotal,returnValue,invoiceBalance} from './calculations.js';
 function nextId(list,prefix){let n=Math.max(0,...list.map(r=>r.id.startsWith(prefix+'-')?Number(r.id.slice(prefix.length+1))||0:0))+1;while(list.some(r=>r.id===`${prefix}-${String(n).padStart(4,'0')}`))n++;return `${prefix}-${String(n).padStart(4,'0')}`;}
@@ -17,7 +16,6 @@ export function createDistribution(data,values){
   const p=data.products.find(p=>p.id===i.productId&&p.active!==false);if(!p)throw Error('Pilih produk aktif.');
   if(seen.has(p.id))throw Error('Produk yang sama tidak boleh ditambahkan dua kali. Gabungkan jumlahnya.');seen.add(p.id);
   const quantity=Number(i.quantity);if(!/^\d+$/.test(String(i.quantity))||!Number.isSafeInteger(quantity)||quantity<1||quantity>1000000)throw Error('Jumlah harus bilangan bulat antara 1 dan 1.000.000.');
-  if(data.inventory&&quantity>inventorySummary(data,p.id).available)throw Error(`Stok ${p.name} tidak mencukupi. Catat barang masuk terlebih dahulu.`);
   return {productId:p.id,productName:p.name,unit:p.unit,quantity,price:money(i.price??sellingPrice(customer,p)),cost:money(p.cost,'Harga modal')};
  });
  const transaction={id:nextId(data.distributions,'DST'),date,customerId:customer.id,customerName:customer.name,items,note:note(values.note,'Catatan'),createdAt:new Date().toISOString()};

@@ -249,3 +249,15 @@ Uji browser dilakukan pada origin demo terpisah: penerimaan → distribusi → r
 
 Kode UI berada di `src/pages/distribution.js`. Validasi batch dan penyimpanan atomik berada di `src/lib/operations.js`; aturan transaksi positif tunggal sebelumnya tetap dipakai oleh import simulasi dan domain lain. Pengujian `tests/distribution-batch.test.js` mencakup rentang tanggal, input nol, hari kosong, atomisitas stok/periode final, anti-duplikasi, harga historis, retur, serta rekap/invoice dari transaksi multi-hari.
 # demo_distribution_web_app
+
+
+## Pembaruan v0.8: distributor tanpa penyimpanan barang
+
+Ketentuan ini menggantikan asumsi inventori pada dokumentasi tahap sebelumnya. Distributor tidak menyimpan stok barang.
+
+- Menu dan halaman Inventori dihapus dari aplikasi aktif; alamat lama `#/inventory` dialihkan ke Pencatatan Distribusi.
+- Kartu stok di dashboard serta informasi stok di formulir distribusi dihapus.
+- Distribusi per hari, rentang tanggal, dan validasi import tidak mensyaratkan penerimaan atau ketersediaan stok. Produk baru langsung dapat dicatat distribusinya.
+- Validasi jumlah, harga, customer/produk aktif, periode final, retur, rekap, invoice, dan pembayaran tetap berlaku.
+- Data inventori lama di LocalStorage dipertahankan untuk kompatibilitas, tanpa digunakan atau diperbarui. Seed baru tidak membuat inventori maupun stok produk. Tidak perlu reset data transaksi.
+- Pengujian mencakup distribusi besar tanpa stok, produk baru tanpa penerimaan, kompatibilitas data lama, import, serta konsistensi rekap/retur.

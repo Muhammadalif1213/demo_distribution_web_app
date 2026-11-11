@@ -88,6 +88,7 @@ function render() {
 }
 function navigate() {
   route = location.hash.replace(/^#\/?/, "").split("?")[0] || "dashboard";
+  if (route === "inventory") { location.replace("#/distribution"); return; }
   document.body.classList.remove("menu-open");
   document.querySelector("#menu-toggle").setAttribute("aria-expanded", "false");
   if(route==="distribution")distributionView.tab="entry";
@@ -279,7 +280,7 @@ document.querySelector('[data-route="distribution"]').addEventListener('click',(
 document.querySelector("#help").onclick = () =>
   showModal(
     "Tentang prototipe DMS",
-    `<p>Kelola distribusi mie dan pangsit dalam satu ruang kerja.</p><dl class="detail-list"><div><dt>Versi</dt><dd>0.7 · Pencatatan distribusi per hari & rentang</dd></div><div><dt>Periode data demo</dt><dd>12 Okt – 8 Nov 2026</dd></div><div><dt>Penyimpanan</dt><dd>LocalStorage browser</dd></div></dl><p>Gunakan filter periode dan customer, lihat detail invoice, atau ekspor ringkasan CSV. Reset data tersedia melalui menu Pengaturan.</p><div class="notice">Inventori memakai asumsi; import Excel dan integrasi berjalan dalam simulasi. Seluruh data fiktif; tidak ada pesan atau transaksi keuangan yang dikirim.</div>`,
+    `<p>Kelola distribusi mie dan pangsit dalam satu ruang kerja.</p><dl class="detail-list"><div><dt>Versi</dt><dd>0.8 · Distribusi tanpa penyimpanan stok</dd></div><div><dt>Periode data demo</dt><dd>12 Okt – 8 Nov 2026</dd></div><div><dt>Penyimpanan</dt><dd>LocalStorage browser</dd></div></dl><p>Gunakan filter periode dan customer, lihat detail invoice, atau ekspor ringkasan CSV. Reset data tersedia melalui menu Pengaturan.</p><div class="notice">Distributor tidak menyimpan stok barang. Import Excel dan integrasi berjalan dalam simulasi. Seluruh data fiktif; tidak ada pesan atau transaksi keuangan yang dikirim.</div>`,
   );
 navigate();
 if (getStorageWarning()) toast(getStorageWarning());

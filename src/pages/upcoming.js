@@ -35,11 +35,6 @@ const content = {
     "Pembayaran & piutang",
     "Pencatatan pembayaran sebagian dan alokasi ke beberapa invoice.",
   ],
-  inventory: [
-    "Tahap 6",
-    "Inventori",
-    "Stok masuk, keluar, retur rusak, dan riwayat mutasi berdasarkan asumsi prototipe.",
-  ],
   reports: [
     "Tahap 6",
     "Laporan & analitik",
@@ -63,5 +58,5 @@ const content = {
 };
 export function upcoming(route, info, data) {
   const [step, title, desc] = content[route];
-  return `<div class="page-heading"><div><div class="eyebrow">PENGEMBANGAN BERTAHAP</div><h1>${info.label}</h1><p>Fondasi siap. Modul ini akan dilanjutkan pada ${step.toLowerCase()}.</p></div><a class="button secondary" href="#/dashboard">Kembali ke dashboard</a></div><section class="panel upcoming"><div class="upcoming-icon">${icon(info.icon)}</div><span class="badge blue-badge">${step} · Belum diimplementasikan</span><h2>${title}</h2><p>${desc}</p><div class="upcoming-info">${icon("check")} ${data.customers.length} customer, ${data.products.length} produk, dan ${data.distributions.length} distribusi demo sudah tersedia sebagai fondasi data.</div><a href="#/dashboard" class="button primary">Buka dashboard ${icon("chevron")}</a></section><section class="panel roadmap"><h2>Progres prototipe</h2>${["Fondasi aplikasi & dashboard", "Master data customer & produk", "Distribusi & retur produk", "Rekapitulasi & invoice", "Pembayaran sebagian & piutang", "Inventori & modul pendukung"].map((s, i) => `<div class="roadmap-row"><span class="${i < 5 ? "done" : ""}">${i < 5 ? icon("check") : i + 1}</span><strong>${s}</strong><small>${i < 5 ? "Selesai" : "Direncanakan"}</small></div>`).join("")}</section>${route === "settings" ? `<section class="panel reset-panel"><div><h2>Reset data demo</h2><p>Kembalikan data LocalStorage ke seed awal yang deterministik.</p></div><button class="button danger" id="reset-demo">${icon("return")} Reset data demo</button></section>` : ""}`;
+  return `<div class="page-heading"><div><div class="eyebrow">PENGEMBANGAN BERTAHAP</div><h1>${info.label}</h1><p>Fondasi siap. Modul ini akan dilanjutkan pada ${step.toLowerCase()}.</p></div><a class="button secondary" href="#/dashboard">Kembali ke dashboard</a></div><section class="panel upcoming"><div class="upcoming-icon">${icon(info.icon)}</div><span class="badge blue-badge">${step} · Belum diimplementasikan</span><h2>${title}</h2><p>${desc}</p><div class="upcoming-info">${icon("check")} ${data.customers.length} customer, ${data.products.length} produk, dan ${data.distributions.length} distribusi demo sudah tersedia sebagai fondasi data.</div><a href="#/dashboard" class="button primary">Buka dashboard ${icon("chevron")}</a></section><section class="panel roadmap"><h2>Progres prototipe</h2>${["Fondasi aplikasi & dashboard", "Master data customer & produk", "Distribusi & retur produk", "Rekapitulasi & invoice", "Pembayaran sebagian & piutang", "Laporan & modul pendukung"].map((s, i) => `<div class="roadmap-row"><span class="${i < 5 ? "done" : ""}">${i < 5 ? icon("check") : i + 1}</span><strong>${s}</strong><small>${i < 5 ? "Selesai" : "Direncanakan"}</small></div>`).join("")}</section>${route === "settings" ? `<section class="panel reset-panel"><div><h2>Reset data demo</h2><p>Kembalikan data LocalStorage ke seed awal yang deterministik.</p></div><button class="button danger" id="reset-demo">${icon("return")} Reset data demo</button></section>` : ""}`;
 }
