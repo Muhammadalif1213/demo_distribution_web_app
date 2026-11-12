@@ -7,6 +7,76 @@ function nextId(list,prefix){let n=Math.max(0,...list.map(r=>r.id.startsWith(pre
 function note(value,label,required=false){const v=String(value??'').trim();if(required&&!v)throw Error(`${label} wajib diisi.`);if(v.length>500)throw Error(`${label} maksimal 500 karakter.`);return v;}
 export function remainingQuantity(data,distributionId,productId){const d=data.distributions.find(d=>d.id===distributionId);const item=d?.items.find(i=>i.productId===productId);return (item?.quantity||0)-data.returns.filter(r=>r.distributionId===distributionId&&r.productId===productId).reduce((s,r)=>s+r.quantity,0);}
 export function linkedRecap(data,id){return data.recaps.find(r=>r.status==='final'&&r.distributionIds.includes(id));}
+export function isDistributionFinal(data,id){const d=data.distributions.find(d=>d.id===id);return Boolean(d&&(linkedRecap(data,id)||data.recaps.some(r=>r.status==='final'&&r.customerId===d.customerId&&r.start<=d.date&&r.end>=d.date)));}
+export function distributionLockReason(data,id){
+ const d=data.distributions.find(d=>d.id===id);
+ if(!d)return 'Distribusi tidak ditemukan.';
+ if(isDistributionFinal(data,id))return 'Distribusi sudah masuk periode rekap final dan tidak dapat diedit atau dihapus.';
+ if(data.returns.some(r=>r.distributionId===id))return 'Distribusi sudah memiliki retur dan tidak dapat diedit agar riwayat retur tetap sesuai.';
+ return '';
+}
+export function updateDistribution(data,id,values){
+ const reason=distributionLockReason(data,id);if(reason)throw Error(reason);
+ const original=data.distributions.find(d=>d.id===id);
+ if(values.customerId!==undefined&&values.customerId!==original.customerId)throw Error('Customer distribusi tidak dapat diubah.');
+ if(!Array.isArray(values.items))throw Error('Isi produk yang dikirim.');
+ const seen=new Set(),positive=[];
+ for(const item of values.items){
+  if(seen.has(item.productId))throw Error('Produk yang sama tidak boleh dicatat dua kali.');seen.add(item.productId);
+  const p=data.products.find(p=>p.id===item.productId),old=original.items.find(i=>i.productId===item.productId);
+  if(!p||(!old&&p.active===false))throw Error('Produk tidak aktif atau tidak ditemukan.');
+  const q=Number(item.quantity);if(!/^\d+$/.test(String(item.quantity))||!Number.isSafeInteger(q)||q<0||q>1000000)throw Error('Jumlah harus bilangan bulat antara 0 dan 1.000.000.');
+  const price=money(item.price??old?.price??sellingPrice(data.customers.find(c=>c.id===original.customerId),p));
+  if(q>0)positive.push({productId:p.id,quantity:q,price});
+ }
+ if(!positive.length)throw Error('Isi minimal satu jumlah produk lebih dari 0. Gunakan Hapus untuk menghapus distribusi.');
+ const working=structuredClone(data);
+ working.customers.find(c=>c.id===original.customerId).active=true;
+ for(const i of original.items){const p=working.products.find(p=>p.id===i.productId);if(p)p.active=true;}
+ const checked=createDistribution(working,{...values,customerId:original.customerId,items:positive});
+ checked.items=checked.items.map(i=>{const old=original.items.find(item=>item.productId===i.productId);return old?{...i,productName:old.productName??i.productName,unit:old.unit??i.unit,cost:old.cost}:i;});
+ const before=structuredClone(original),updatedAt=new Date().toISOString();
+ Object.assign(original,{date:checked.date,items:checked.items,note:checked.note,updatedAt});
+ data.distributionChanges??=[];data.distributionChanges.push({distributionId:id,before,after:structuredClone(original),updatedAt});
+ return original;
+}
+export function distributionDeleteLockReason(data,id){
+ if(!data.distributions.some(d=>d.id===id))return 'Distribusi tidak ditemukan.';
+ return isDistributionFinal(data,id)?'Distribusi sudah masuk rekap final dan tidak dapat dihapus.':'';
+}
+function refreshDraftRecaps(data,distributionIds){
+ for(const r of data.recaps.filter(r=>r.status==='draft'&&r.distributionIds.some(id=>distributionIds.includes(id)))){
+  r.distributionIds=r.distributionIds.filter(id=>data.distributions.some(d=>d.id===id));
+  r.total=data.distributions.filter(d=>r.distributionIds.includes(d.id)).reduce((s,d)=>s+distributionTotal(d),0)-data.returns.filter(ret=>r.distributionIds.includes(ret.distributionId)).reduce((s,ret)=>s+returnValue(ret,data),0);
+  r.fingerprint=null;
+ }
+}
+function removeReturnRecords(data,ids){
+ if(!ids.length)return;
+ const removed=data.returns.filter(r=>ids.includes(r.id)),deletedAt=new Date().toISOString();
+ data.deletedReturns??=[];
+ for(const r of removed)data.deletedReturns.push({...structuredClone(r),deletedAt,adjustments:structuredClone((data.adjustments||[]).filter(a=>a.returnId===r.id))});
+ data.returns=data.returns.filter(r=>!ids.includes(r.id));
+ if(data.adjustments)data.adjustments=data.adjustments.filter(a=>!ids.includes(a.returnId));
+ for(const b of data.distributionBatches||[]){const linked=(b.returnIds||[]).filter(id=>ids.includes(id));if(linked.length){b.returnIds=b.returnIds.filter(id=>!ids.includes(id));b.deletedReturnIds??=[];b.deletedReturnIds.push(...linked);}}
+}
+export function deleteReturn(data,id){
+ const r=data.returns.find(r=>r.id===id);if(!r)throw Error('Retur tidak ditemukan.');
+ if(!data.distributions.some(d=>d.id===r.distributionId))throw Error('Distribusi asal tidak ditemukan.');
+ if(isDistributionFinal(data,r.distributionId))throw Error('Retur sudah masuk rekap final dan tidak dapat dihapus.');
+ removeReturnRecords(data,[id]);refreshDraftRecaps(data,[r.distributionId]);return r;
+}
+export function deleteDistribution(data,id){
+ const reason=distributionDeleteLockReason(data,id);if(reason)throw Error(reason);
+ const original=data.distributions.find(d=>d.id===id);
+ const returnIds=data.returns.filter(r=>r.distributionId===id).map(r=>r.id);
+ data.deletedDistributions??=[];data.deletedDistributions.push({...structuredClone(original),deletedAt:new Date().toISOString(),deletedReturnIds:returnIds});
+ removeReturnRecords(data,returnIds);
+ data.distributions.splice(data.distributions.indexOf(original),1);
+ refreshDraftRecaps(data,[id]);
+ for(const b of data.distributionBatches||[]){if(b.distributionIds.includes(id)){b.distributionIds=b.distributionIds.filter(value=>value!==id);b.deletedDistributionIds??=[];b.deletedDistributionIds.push(id);}}
+ return original;
+}
 export function createDistribution(data,values){
  const date=validDate(values.date);const customer=data.customers.find(c=>c.id===values.customerId&&c.active!==false);
  if(!customer)throw Error('Pilih customer aktif.');
@@ -18,18 +88,21 @@ export function createDistribution(data,values){
   const quantity=Number(i.quantity);if(!/^\d+$/.test(String(i.quantity))||!Number.isSafeInteger(quantity)||quantity<1||quantity>1000000)throw Error('Jumlah harus bilangan bulat antara 1 dan 1.000.000.');
   return {productId:p.id,productName:p.name,unit:p.unit,quantity,price:money(i.price??sellingPrice(customer,p)),cost:money(p.cost,'Harga modal')};
  });
- const transaction={id:nextId(data.distributions,'DST'),date,customerId:customer.id,customerName:customer.name,items,note:note(values.note,'Catatan'),createdAt:new Date().toISOString()};
+ const transaction={id:nextId([...data.distributions,...data.deletedDistributions||[]],'DST'),date,customerId:customer.id,customerName:customer.name,items,note:note(values.note,'Catatan'),createdAt:new Date().toISOString()};
  if(!Number.isSafeInteger(distributionTotal(transaction)))throw Error('Total transaksi terlalu besar.');
  // A finalized interval is closed: adding shipments would silently bypass its invoice.
  if(data.recaps.some(r=>r.customerId===customer.id&&r.status==='final'&&r.start<=date&&r.end>=date))throw Error('Periode customer ini sudah difinalisasi. Gunakan periode yang masih terbuka.');
  data.distributions.push(transaction);return transaction;
 }
+export function returnCandidates(data,day,customerId,{includeExisting=false}={}){validDate(day,'Tanggal distribusi');return data.distributions.filter(d=>d.date===day&&(!customerId||d.customerId===customerId)&&!isDistributionFinal(data,d.id)&&d.items.some(i=>remainingQuantity(data,d.id,i.productId)>0||(includeExisting&&data.returns.some(r=>r.distributionId===d.id&&r.productId===i.productId&&r.date===d.date)))).slice().sort((a,b)=>a.id.localeCompare(b.id,undefined,{numeric:true}));}
 export function previewReturn(data,values){
  const date=validDate(values.date,'Tanggal retur');const d=data.distributions.find(d=>d.id===values.distributionId);if(!d)throw Error('Distribusi asal tidak ditemukan.');
- if(date<d.date)throw Error('Tanggal retur tidak boleh mendahului tanggal distribusi.');
+ if(isDistributionFinal(data,d.id))throw Error('Rekap distribusi ini sudah final. Retur hanya dapat dicatat sebelum finalisasi rekap.');
+ if(date!==d.date)throw Error('Tanggal retur harus sama dengan tanggal distribusi asal.');
+ if(values.customerId!==undefined&&values.customerId!==d.customerId)throw Error('Customer tidak sesuai dengan distribusi asal.');
  const item=d.items.find(i=>i.productId===values.productId);if(!item)throw Error('Produk tidak terdapat pada distribusi asal.');
  const quantity=Number(values.quantity);if(!/^\d+$/.test(String(values.quantity))||!Number.isSafeInteger(quantity)||quantity<1||quantity>remainingQuantity(data,d.id,item.productId))throw Error('Jumlah retur melebihi sisa yang dapat diretur atau bukan bilangan bulat positif.');
- const record={id:nextId(data.returns,'RTR'),date,distributionId:d.id,productId:item.productId,quantity,reason:note(values.reason,'Alasan retur',true),createdAt:new Date().toISOString()};
+ const record={id:nextId([...data.returns,...data.deletedReturns||[]],'RTR'),date,distributionId:d.id,productId:item.productId,quantity,reason:note(values.reason,'Alasan retur',true),createdAt:new Date().toISOString()};
  const credit=quantity*item.price;const recap=linkedRecap(data,d.id);const invoices=recap?data.invoices.filter(i=>i.recapId===recap.id):[];
  if(invoices.length>1)throw Error('Rekap memiliki invoice ganda. Periksa data sebelum mencatat retur.');
  let newTotal=null;
@@ -49,6 +122,26 @@ export function createReturn(data,values){
  return plan.record;
 }
 
+// Editing replaces the total returned quantity; it never adds another return ID.
+export function updateReturn(data,id,values){
+ const original=data.returns.find(r=>r.id===id);if(!original)throw Error('Retur tidak ditemukan.');
+ if(isDistributionFinal(data,original.distributionId))throw Error('Retur sudah masuk rekap final dan tidak dapat diperbarui.');
+ if(values.distributionId!==undefined&&values.distributionId!==original.distributionId)throw Error('Distribusi asal retur tidak dapat diubah.');
+ if(values.productId!==undefined&&values.productId!==original.productId)throw Error('Produk retur tidak dapat diubah.');
+ const working=structuredClone(data);working.returns=working.returns.filter(r=>r.id!==id);
+ const plan=previewReturn(working,{...values,distributionId:original.distributionId,productId:original.productId});
+ const before=structuredClone(original),updatedAt=new Date().toISOString();
+ Object.assign(original,{date:plan.record.date,quantity:plan.record.quantity,reason:plan.record.reason,updatedAt});
+ data.returnChanges??=[];data.returnChanges.push({returnId:id,before,after:structuredClone(original),updatedAt});
+ const adjustment=data.adjustments?.find(a=>a.returnId===id);if(adjustment){adjustment.credit=plan.credit;adjustment.originDate=plan.originDate;adjustment.updatedAt=updatedAt;}
+ refreshDraftRecaps(data,[original.distributionId]);return original;
+}
+export function saveReturn(data,values){
+ const existing=values.returnId?data.returns.find(r=>r.id===values.returnId):data.returns.find(r=>r.distributionId===values.distributionId&&r.productId===values.productId&&r.date===values.date);
+ if(values.returnId&&!existing)throw Error('Retur tidak ditemukan.');
+ return existing?updateReturn(data,existing.id,values):createReturn(data,values);
+}
+
 // Multi-date entry is stored as separate daily transactions, all-or-nothing.
 export function distributionDates(start,end){
  validDate(start,'Tanggal awal');validDate(end,'Tanggal akhir');
@@ -66,32 +159,37 @@ export function previewDistributionBatch(data,values){
  const submissionId=String(values.submissionId??'').trim();
  if(!submissionId||submissionId.length>100)throw Error('ID pencatatan tidak valid. Buka ulang formulir.');
  if(data.distributionBatches?.some(b=>b.submissionId===submissionId))throw Error('Pencatatan ini sudah disimpan. Jangan simpan ulang.');
- const batchNote=note(values.note,'Catatan');
+ const batchNote=note(values.note,'Catatan'),returnNote=note(values.returnNote,'Catatan retur');
  if(!Array.isArray(values.entries)||values.entries.length!==dates.length)throw Error('Isi catatan untuk setiap tanggal dalam rentang.');
- const working=structuredClone(data),records=[],skippedDates=[];
+ const working=structuredClone(data),records=[],returns=[],adjustments=[],skippedDates=[];
  let batchNumber=1;while(data.distributionBatches?.some(b=>b.id===`BATCH-${String(batchNumber).padStart(4,'0')}`))batchNumber++;
  const batchId=`BATCH-${String(batchNumber).padStart(4,'0')}`;
  for(let index=0;index<dates.length;index++){
   const entry=values.entries[index];if(entry.date!==dates[index])throw Error('Tanggal catatan harus berurutan, unik, dan sesuai rentang.');
   if(!Array.isArray(entry.items)||!entry.items.length)throw Error(`Produk pada ${entry.date} belum diisi.`);
-  const seen=new Set();const positive=[];
+  const seen=new Set();const positive=[],pendingReturns=[];
   for(const item of entry.items){
    const p=data.products.find(p=>p.id===item.productId&&p.active!==false);if(!p)throw Error('Produk tidak aktif atau tidak ditemukan.');
    if(seen.has(p.id))throw Error('Produk yang sama tidak boleh dicatat dua kali pada satu tanggal.');seen.add(p.id);
    const quantity=Number(item.quantity);if(!/^\d+$/.test(String(item.quantity))||!Number.isSafeInteger(quantity)||quantity<0||quantity>1000000)throw Error(`Jumlah ${p.name} pada ${formatDate(entry.date)} harus bilangan bulat 0–1.000.000.`);
    const price=money(item.price??sellingPrice(customer,p),`Harga ${p.name}`);
+   const returned=Number(item.returnQuantity??0);if(!/^\d+$/.test(String(item.returnQuantity??0))||!Number.isSafeInteger(returned)||returned<0||returned>quantity)throw Error(`Retur ${p.name} pada ${formatDate(entry.date)} harus bilangan bulat 0 sampai jumlah yang dikirim (${quantity}).`);
+   if(returned>0)pendingReturns.push({productId:p.id,quantity:returned});
    if(quantity>0)positive.push({productId:p.id,quantity,price});
   }
   if(!positive.length){skippedDates.push(entry.date);continue;}
-  try{const transaction=createDistribution(working,{date:entry.date,customerId:customer.id,items:positive,note:batchNote});transaction.batchId=batchId;records.push(transaction);}catch(error){throw Error(`${formatDate(entry.date)}: ${error.message}`);}
+  try{const transaction=createDistribution(working,{date:entry.date,customerId:customer.id,items:positive,note:batchNote});transaction.batchId=batchId;records.push(transaction);for(const item of pendingReturns){const ret=createReturn(working,{date:entry.date,distributionId:transaction.id,...item,reason:returnNote||'Retur saat pencatatan distribusi'});returns.push(ret);adjustments.push(working.adjustments.at(-1));}}catch(error){throw Error(`${formatDate(entry.date)}: ${error.message}`);}
  }
  if(!records.length)throw Error('Belum ada pengiriman. Isi minimal satu jumlah produk lebih dari 0.');
  const total=records.reduce((sum,d)=>sum+distributionTotal(d),0);if(!Number.isSafeInteger(total))throw Error('Total pencatatan terlalu besar.');
- return {records,total,batch:{id:batchId,submissionId,customerId:customer.id,start:values.start,end:values.end,distributionIds:records.map(d=>d.id),skippedDates,note:batchNote,createdAt:new Date().toISOString()}};
+ const returnTotal=returns.reduce((sum,r)=>sum+returnValue(r,working),0),netTotal=total-returnTotal;if(!Number.isSafeInteger(returnTotal)||!Number.isSafeInteger(netTotal))throw Error('Total retur terlalu besar.');
+ return {records,returns,adjustments,total,returnTotal,netTotal,batch:{id:batchId,submissionId,customerId:customer.id,start:values.start,end:values.end,distributionIds:records.map(d=>d.id),returnIds:returns.map(r=>r.id),skippedDates,note:batchNote,createdAt:new Date().toISOString()}};
 }
 export function createDistributionBatch(data,values){
  const plan=previewDistributionBatch(data,values);
  data.distributions.push(...plan.records);
+ data.returns.push(...plan.returns);
+ if(plan.adjustments.length){data.adjustments??=[];data.adjustments.push(...plan.adjustments);}
  data.distributionBatches??=[];data.distributionBatches.push(plan.batch);
  return plan;
 }

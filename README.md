@@ -261,3 +261,134 @@ Ketentuan ini menggantikan asumsi inventori pada dokumentasi tahap sebelumnya. D
 - Validasi jumlah, harga, customer/produk aktif, periode final, retur, rekap, invoice, dan pembayaran tetap berlaku.
 - Data inventori lama di LocalStorage dipertahankan untuk kompatibilitas, tanpa digunakan atau diperbarui. Seed baru tidak membuat inventori maupun stok produk. Tidak perlu reset data transaksi.
 - Pengujian mencakup distribusi besar tanpa stok, produk baru tanpa penerimaan, kompatibilitas data lama, import, serta konsistensi rekap/retur.
+
+
+## Edit dan hapus distribusi
+
+- Riwayat distribusi menyediakan aksi Detail, Hapus, dan Retur. Tombol Edit distribusi berada pada detail, menggantikan Catat retur.
+- Edit mengubah tanggal, jumlah seluruh produk (0 untuk tidak dikirim), harga, dan catatan pada satu transaksi. Customer, ID, waktu pencatatan, serta modal/satuan/nama historis produk lama dipertahankan.
+- Distribusi pada periode rekap final atau yang sudah mempunyai retur dikunci untuk edit/hapus. Retur tetap tersedia dari baris riwayat sesuai sisa jumlah barang.
+- Hapus memerlukan konfirmasi, mengeluarkan satu transaksi dari perhitungan aktif, menyimpan snapshot internal pada deletedDistributions, dan tidak memakai ulang ID. Transaksi lain dari rentang yang sama tidak diubah; metadata kelompok ditandai.
+- Draft rekap terkait perlu di-generate ulang sebelum finalisasi. Edit memiliki snapshot sebelum/sesudah pada distributionChanges. Perubahan tersimpan melalui LocalStorage seperti transaksi lain.
+
+
+## Navigasi distribusi
+
+Menu Pencatatan Distribusi (`#/distribution`) langsung membuka daftar riwayat. Tombol Catat distribusi di kanan atas membuka formulir (`#/distribution?view=entry`). Tab Catat/Riwayat dihapus; formulir menyediakan Kembali ke riwayat. Setelah simpan, aplikasi kembali ke daftar. Tombol Catat distribusi pada dashboard tetap langsung membuka formulir.
+
+
+## Retur dikunci setelah finalisasi rekap
+
+Aturan ini menggantikan ketentuan retur setelah final pada tahap sebelumnya. Distribusi yang belum final (termasuk yang belum dibuatkan draft rekap) tetap dapat diretur sesuai sisa barang. Setelah rekap final, baris riwayat hanya menampilkan Detail; Hapus, Retur, dan Edit pada detail disembunyikan. Distribusi final juga tidak muncul pada pilihan distribusi asal di menu Retur Produk. Validasi domain menolak retur final sebelum mengubah data, baik sudah maupun belum diterbitkan invoice. Riwayat retur dan penyesuaian lama tetap dipertahankan.
+
+
+## Kolom riwayat distribusi
+
+Tanggal dipisahkan di sebelah kanan kode transaksi. Setiap produk mempunyai grup kolom dengan nama produk dan satuan di header, serta jumlah Distribusi dan total Retur pada kolom sebelah kanannya. Retur dijumlahkan dari seluruh catatan retur untuk transaksi dan produk tersebut; produk tanpa pengiriman/retur menampilkan 0. Produk baru otomatis mendapat grup kolom, dan produk arsip yang punya histori tetap ditampilkan. Menu Retur Produk mempertahankan tabelnya sendiri.
+
+
+## Form distribusi empat langkah
+
+1. Customer & tanggal: pilih customer dan mode per hari/rentang.
+2. Jumlah & harga: seluruh produk aktif tampil, jumlah awal 0, harga customer/default dapat disesuaikan.
+3. Retur barang: jumlah awal 0 untuk setiap produk dan tanggal; retur terkait pengiriman pada tanggal yang sama, maksimal jumlah kirim, memakai harga yang diisi pada langkah sebelumnya. Catatan retur opsional.
+4. Tinjauan: rincian kirim, harga, retur, nilai bruto, potongan retur, dan neto sebelum konfirmasi.
+
+Tombol Selanjutnya/Tinjauan/Sebelumnya mempertahankan draft. Customer yang diganti mengosongkan isian customer sebelumnya. Seluruh pengiriman dan retur disimpan atomik setelah konfirmasi terakhir. Retur nol tidak membuat transaksi, hari tanpa kirim dilewati, dan total kirim nol tetap ditolak. Batch lama tanpa returnQuantity tetap kompatibel. Retur hasil pencatatan muncul pada menu Retur Produk dan kolom retur riwayat, serta memengaruhi nilai neto rekap. Kebijakan rekap final tetap berlaku.
+
+
+## Penghapusan distribusi dan retur sebelum finalisasi
+
+- Distribusi yang belum masuk rekap final bisa dihapus meskipun memiliki retur. Dialog konfirmasi menampilkan jumlah dan nilai retur terkait yang ikut dihapus. Semua retur terkait dihapus dari riwayat aktif, termasuk retur yang dicatat lewat wizard maupun menu Retur Produk.
+- Riwayat retur menyediakan Detail dan Hapus untuk retur dengan distribusi asal yang belum final; konfirmasi Hapus retur hanya menghapus catatan retur yang dipilih, tanpa menghapus distribusi atau retur lainnya.
+- Distribusi/retur final tetap hanya menyediakan Detail dan ditolak oleh validasi domain bila dihapus. Edit distribusi masih dikunci selama ada retur terkait.
+- Penghapusan membersihkan jejak penyesuaian aktif dan metadata batch, menghitung ulang draft rekap, serta mewajibkan Generate ulang sebelum finalisasi. Snapshot internal tersimpan pada deletedReturns/deletedDistributions; ID yang dihapus tidak digunakan ulang. Histori invoice dan pembayaran tetap terjaga.
+
+
+## Pagination dan nomor urut (v0.15)
+
+Semua tabel data dan riwayat berbentuk baris kartu memakai pagination bersama: maksimal 50 baris per halaman, kolom No. paling kiri, nomor berlanjut 51–100 pada halaman berikutnya, tombol Sebelumnya/Berikutnya dan nomor halaman, serta rentang/jumlah data. Tabel bertingkat, preview import yang sebelumnya punya nomor Baris, dan tabel pada dialog detail juga ditangani tanpa penomoran ganda. Riwayat simulasi/import dan distribusi terbaru tidak lagi dipotong pada 3/5 catatan terakhir.
+
+Pencarian/filter yang mengganti hasil kembali ke halaman pertama; halaman terakhir dibatasi sesuai jumlah data. Pagination hanya mengatur tampilan: ringkasan, laporan, ekspor, dan validasi seluruh data tetap utuh. Pada formulir berisi lebih dari 50 baris, isian tetap dipertahankan; input invalid di halaman lain otomatis ditampilkan untuk diperbaiki. Saat cetak, semua baris ditampilkan.
+
+Implementasi berada di src/components/pagination.js dan src/lib/pagination.js. Nomor/baris diperbarui pada perubahan tampilan utama dan dialog. Pengujian batas halaman ada di tests/pagination.test.js; fixture browser tests/fixtures/pagination.html memverifikasi 121 baris, nomor 51–100, halaman terakhir, filter, daftar kartu, nomor yang sudah ada, serta validasi input lintas halaman tanpa menyentuh data pengguna.
+
+
+## Batas pagination v0.16
+
+Maksimal tampilan diubah menjadi 30 baris per halaman untuk semua tabel dan riwayat. Nomor halaman kedua dimulai dari 31, halaman ketiga dari 61, dan seterusnya. Keterangan batas dan validasi input lintas halaman menggunakan konstanta PAGE_SIZE yang sama. Ketentuan ini menggantikan batas 50 pada versi sebelumnya.
+
+
+## Area gulir tabel v0.17
+
+Tabel daftar dibatasi tinggi sesuai layar (desktop maksimal 440 px). Baris hingga 30 data digulir di dalam tabel; header tabel tetap terlihat. Judul, filter, dan pagination berada di luar area gulir. Pindah halaman atau memperbarui hasil mengembalikan posisi gulir tabel ke atas. Area tabel dapat difokuskan dengan keyboard, mendukung gulir horizontal di layar kecil, serta kembali menampilkan seluruh isi saat cetak.
+
+
+## Popup detail tanpa pagination (v0.18)
+
+Popup detail menampilkan seluruh baris sekaligus tanpa tombol halaman atau batas 30 baris. Nomor urut dan area gulir tetap tersedia. Daftar utama tetap menggunakan pagination 30 baris per halaman.
+
+
+## Kolom tanggal riwayat retur v0.19
+
+Tanggal retur dipisahkan menjadi kolom tersendiri tepat di sebelah kanan kode retur. Urutan awal tabel adalah No., Kode retur, Tanggal retur, Customer/referensi.
+
+
+## Catat retur menurut tanggal distribusi v0.20
+
+Tanggal pada form Catat Retur menjadi filter tanggal distribusi. Setelah memilih tanggal, pilihan customer hanya memuat customer yang memiliki distribusi pada tanggal tersebut, belum masuk rekap final, dan masih mempunyai barang yang dapat diretur. Distribusi asal otomatis dipilih saat customer dipilih; jika ada beberapa pengiriman untuk customer dan tanggal yang sama, pengguna dapat memilih kode asal yang sesuai. Tabel ringkasan menampilkan produk, jumlah dikirim, jumlah sudah diretur, dan sisa. Tanggal retur baru wajib sama dengan tanggal distribusi asal, dengan validasi jumlah/harga historis tetap berlaku. Membuka Retur dari baris riwayat langsung mengisi tanggal, customer, dan distribusi asal. Retur historis yang sudah tersimpan tidak diubah.
+
+
+## Popup retur dua langkah v0.21
+
+Catat Retur dipisah menjadi pemilihan tanggal/customer dan pengisian retur. Tombol Selanjutnya membuka distribusi asal, ringkasan jumlah produk, dan input retur. Tombol Sebelumnya mengembalikan pemilihan tanpa menghapus isian jika sumber tidak berubah. Tombol Retur pada riwayat distribusi langsung membuka langkah pengisian dengan tanggal, customer, dan distribusi asal dari baris tersebut.
+
+
+## Ringkasan distribusi di form retur v0.22
+
+Langkah kedua menampilkan kartu ringkasan dengan nama customer sebagai judul utama, serta ID dan tanggal distribusi dalam dua kolom. Dropdown distribusi asal hanya muncul pada langkah pertama bila customer memiliki beberapa distribusi pada tanggal yang sama. Pintasan Retur dari riwayat langsung menampilkan ringkasan distribusi yang dipilih.
+
+
+## Pilih customer sebelum tanggal retur v0.23
+
+Langkah pertama Catat Retur memilih customer terlebih dahulu. Pilihan tanggal hanya berisi tanggal distribusi customer tersebut yang belum masuk rekap final dan masih memiliki sisa barang untuk diretur. Mengganti customer mengosongkan tanggal dan sumber distribusi sebelumnya. Pintasan Retur pada riwayat tetap langsung membuka langkah kedua.
+
+
+## Perbarui retur tanpa ID baru v0.24
+
+Catat Retur memuat jumlah dan alasan tersimpan bila distribusi, tanggal, serta produknya sama. Simpan memperbarui total jumlah dengan ID tetap, bukan menambah jumlah atau membuat catatan baru. Tombol Update tersedia di riwayat untuk retur sebelum rekap final dan langsung membuka pengisian. Jumlah maksimal memperhitungkan retur lain pada pengiriman yang sama. Retur penuh tetap tersedia untuk dikoreksi. Pembaruan menyimpan jejak perubahan, memperbarui nilai penyesuaian dan draft rekap, serta meminta generate ulang sebelum finalisasi. Duplikat historis tidak digabung otomatis; setiap baris masih dapat diperbarui atau dihapus sebelum final.
+
+
+## Kolom jumlah riwayat retur v0.25
+
+Jumlah beserta satuan retur dipindahkan ke kolom Jumlah di sebelah kanan Produk. Kolom Customer hanya menampilkan nama; kode distribusi asal tetap tersedia pada Detail retur.
+
+
+## Batas input jumlah retur v0.26
+
+Angka retur yang diketik atau ditempel melebihi batas langsung disesuaikan ke jumlah maksimal. Berlaku untuk popup Catat/Update Retur dan langkah Retur barang saat pencatatan distribusi. Batas pembaruan memperhitungkan catatan retur lain; nilai total dihitung setelah input dibatasi. Validasi saat simpan tetap berlaku.
+
+
+## Kolom periode dan jumlah distribusi rekap v0.27
+
+Tabel Rekapitulasi menampilkan Periode rekap dan Jumlah distribusi pada kolom tersendiri setelah Customer. Nomor rekap dan nama customer tidak lagi memuat informasi tersebut sebagai teks tambahan.
+
+
+## Jumlah bersih dan retur per produk rekap v0.28
+
+Riwayat Rekapitulasi menampilkan pasangan kolom Bersih dan Retur untuk mie dan pangsit, dengan satuan pada judul produk. Bersih adalah total jumlah dikirim dikurangi seluruh retur yang terkait ID distribusi dalam rekap tersebut. Produk yang tidak dikirim ditampilkan 0. Tabel dapat digulir ke samping.
+
+
+## Kolom terkirim dan retur rekap v0.29
+
+Kolom kiri setiap produk pada riwayat Rekapitulasi menampilkan total Terkirim sebelum dikurangi retur. Kolom kanan menampilkan total Retur produk tersebut. Penjualan neto tetap memperhitungkan pengurangan retur.
+
+
+## Pengelompokan kolom rekap v0.30
+
+Header utama riwayat rekap menjadi Total Terkirim dan Total Retur. Masing-masing memiliki subkolom Mie dan Pangsit dengan satuannya. Urutan nilai mengikuti header: terkirim mie, terkirim pangsit, retur mie, retur pangsit.
+
+
+## Total terkirim bersih v0.31
+
+Total Terkirim pada riwayat rekap menampilkan jumlah bersih yang diterima customer (jumlah dikirim dikurangi retur), untuk mie dan pangsit. Total Retur tetap menampilkan seluruh jumlah retur terkait distribusi pada rekap tersebut.

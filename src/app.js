@@ -1,12 +1,36 @@
-import {distributionPage,bindDistribution,distributionView} from "./pages/distribution.js";
-import {paymentsPage,bindPayments,showPaymentForm} from "./pages/payments.js";
-import {billingPage,bindBilling,showInvoicePreview,showWhatsapp} from "./pages/billing.js";
-import {operationsPage,bindOperations} from "./pages/operations.js";
+import { installListPagination } from "./components/pagination.js?v=0.18";
+import {
+  distributionPage,
+  bindDistribution,
+  distributionView,
+} from "./pages/distribution.js?v=0.31";
+import {
+  paymentsPage,
+  bindPayments,
+  showPaymentForm,
+} from "./pages/payments.js";
+import {
+  billingPage,
+  bindBilling,
+  showInvoicePreview,
+  showWhatsapp,
+} from "./pages/billing.js?v=0.31";
+import { operationsPage, bindOperations } from "./pages/operations.js?v=0.31";
 import { masterPage, bindMasterPage } from "./pages/master.js";
 import { shell, routes } from "./components/shell.js";
-import { dashboard, view, periods, invoiceRows } from "./pages/dashboard.js";
-import {supplementalRoutes,supplementalPage,bindSupplemental,resetSupplementalViews} from "./pages/supplemental.js";
-import {today} from "./lib/dates.js";
+import {
+  dashboard,
+  view,
+  periods,
+  invoiceRows,
+} from "./pages/dashboard.js?v=0.16";
+import {
+  supplementalRoutes,
+  supplementalPage,
+  bindSupplemental,
+  resetSupplementalViews,
+} from "./pages/supplemental.js?v=0.15";
+import { today } from "./lib/dates.js";
 import {
   getData,
   getStorageWarning,
@@ -23,6 +47,8 @@ import { icon } from "./lib/icons.js";
 document.querySelector("#app").innerHTML = shell();
 const page = document.querySelector("#page"),
   modal = document.querySelector("#modal");
+installListPagination(page);
+installListPagination(modal, {paginate: false});
 let route = "dashboard",
   toastTimer;
 function toast(message) {
@@ -53,10 +79,17 @@ modal.addEventListener("click", (e) => {
 });
 function render() {
   const data = getData();
-  document.querySelector('.workspace strong').textContent=data.settings.name;
-  document.querySelector('.workspace-avatar').textContent=data.settings.name.split(' ').slice(0,2).map(w=>w[0]).join('').toUpperCase();
-  document.querySelector('#profile strong').textContent=data.settings.user;
-  document.querySelector('#profile .avatar').textContent=data.settings.user.slice(0,2).toUpperCase();
+  document.querySelector(".workspace strong").textContent = data.settings.name;
+  document.querySelector(".workspace-avatar").textContent = data.settings.name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+  document.querySelector("#profile strong").textContent = data.settings.user;
+  document.querySelector("#profile .avatar").textContent = data.settings.user
+    .slice(0, 2)
+    .toUpperCase();
   document.title = `${routes[route]?.label || "Halaman tidak ditemukan"} · DMS`;
   document.querySelector("#breadcrumb-title").textContent =
     routes[route]?.label || "Halaman tidak ditemukan";
@@ -76,22 +109,30 @@ function render() {
         : route === "distribution"
           ? distributionPage(data)
           : route === "returns"
-          ? operationsPage(data, route)
-          : ["recapitulation", "invoices"].includes(route)
-          ? billingPage(data, route)
-          : route === "payments"
-          ? paymentsPage(data)
-          : supplementalRoutes.includes(route)
-          ? supplementalPage(data,route)
-          : `<section class="panel upcoming"><h1>Halaman tidak ditemukan</h1><p>Alamat halaman tidak dikenali.</p><a class="button primary" href="#/dashboard">Kembali ke dashboard</a></section>`;
+            ? operationsPage(data, route)
+            : ["recapitulation", "invoices"].includes(route)
+              ? billingPage(data, route)
+              : route === "payments"
+                ? paymentsPage(data)
+                : supplementalRoutes.includes(route)
+                  ? supplementalPage(data, route)
+                  : `<section class="panel upcoming"><h1>Halaman tidak ditemukan</h1><p>Alamat halaman tidak dikenali.</p><a class="button primary" href="#/dashboard">Kembali ke dashboard</a></section>`;
   bindPage();
 }
 function navigate() {
   route = location.hash.replace(/^#\/?/, "").split("?")[0] || "dashboard";
-  if (route === "inventory") { location.replace("#/distribution"); return; }
+  if (route === "inventory") {
+    location.replace("#/distribution");
+    return;
+  }
   document.body.classList.remove("menu-open");
   document.querySelector("#menu-toggle").setAttribute("aria-expanded", "false");
-  if(route==="distribution")distributionView.tab="entry";
+  if (route === "distribution")
+    distributionView.tab =
+      new URLSearchParams(location.hash.split("?")[1] || "").get("view") ===
+      "entry"
+        ? "entry"
+        : "history";
   render();
 }
 window.addEventListener("hashchange", () => {
@@ -100,30 +141,99 @@ window.addEventListener("hashchange", () => {
   window.scrollTo(0, 0);
 });
 function invoiceDetail(id) {
- showInvoicePreview({data:getData(),id,modal,showModal,onWhatsapp:whatsappPreview,onPayment:paymentForm});
+  showInvoicePreview({
+    data: getData(),
+    id,
+    modal,
+    showModal,
+    onWhatsapp: whatsappPreview,
+    onPayment: paymentForm,
+  });
 }
 function paymentForm(invoiceId) {
- showPaymentForm({data:getData(),invoiceId,modal,showModal,render,toast,persist:saveData,onInvoice:invoiceDetail});
+  showPaymentForm({
+    data: getData(),
+    invoiceId,
+    modal,
+    showModal,
+    render,
+    toast,
+    persist: saveData,
+    onInvoice: invoiceDetail,
+  });
 }
 function whatsappPreview(id) {
- showWhatsapp({data:getData(),id,modal,showModal,persist:saveData,toast});
+  showWhatsapp({
+    data: getData(),
+    id,
+    modal,
+    showModal,
+    persist: saveData,
+    toast,
+  });
 }
 function refreshRows() {
   const result = invoiceRows(getData());
   document.querySelector("#invoice-rows").innerHTML = result.html;
-  document.querySelector("#table-count").textContent =
-    `Menampilkan ${result.total ? (view.page - 1) * 4 + 1 : 0}–${Math.min(view.page * 4, result.total)} dari ${result.total} invoice`;
-  document.querySelector("#page-info").textContent =
-    `${view.page} / ${result.pages}`;
-  document.querySelector("#prev-page").disabled = view.page === 1;
-  document.querySelector("#next-page").disabled = view.page === result.pages;
 }
+
 function bindPage() {
-  if(supplementalRoutes.includes(route))bindSupplemental({data:getData(),type:route,page,modal,showModal,render,toast,persist:saveData});
-  if (route === "payments") bindPayments({data:getData(),page,modal,showModal,render,toast,persist:saveData,onInvoice:invoiceDetail});
-  if (["recapitulation", "invoices"].includes(route)) bindBilling({data:getData(),type:route,page,modal,showModal,render,toast,persist:saveData,onInvoice:invoiceDetail,onWhatsapp:whatsappPreview});
-  if (route === "distribution") bindDistribution({data:getData(),page,modal,showModal,render,toast,persist:saveData});
-  if (route === "returns") bindOperations({data:getData(),type:route,page,modal,showModal,render,toast,persist:saveData});
+  if (supplementalRoutes.includes(route))
+    bindSupplemental({
+      data: getData(),
+      type: route,
+      page,
+      modal,
+      showModal,
+      render,
+      toast,
+      persist: saveData,
+    });
+  if (route === "payments")
+    bindPayments({
+      data: getData(),
+      page,
+      modal,
+      showModal,
+      render,
+      toast,
+      persist: saveData,
+      onInvoice: invoiceDetail,
+    });
+  if (["recapitulation", "invoices"].includes(route))
+    bindBilling({
+      data: getData(),
+      type: route,
+      page,
+      modal,
+      showModal,
+      render,
+      toast,
+      persist: saveData,
+      onInvoice: invoiceDetail,
+      onWhatsapp: whatsappPreview,
+    });
+  if (route === "distribution")
+    bindDistribution({
+      data: getData(),
+      page,
+      modal,
+      showModal,
+      render,
+      toast,
+      persist: saveData,
+    });
+  if (route === "returns")
+    bindOperations({
+      data: getData(),
+      type: route,
+      page,
+      modal,
+      showModal,
+      render,
+      toast,
+      persist: saveData,
+    });
   if (["customers", "products"].includes(route))
     bindMasterPage({
       data: getData(),
@@ -164,16 +274,8 @@ function bindPage() {
       view.page = 1;
       refreshRows();
     };
-    document.querySelector("#prev-page").onclick = () => {
-      view.page--;
-      refreshRows();
-    };
-    document.querySelector("#next-page").onclick = () => {
-      view.page++;
-      refreshRows();
-    };
     document.querySelector("#quick-action").onclick = () => {
-      location.hash = "/distribution";
+      location.hash = "/distribution?view=entry";
     };
     document.querySelector("#export").onclick = exportSummary;
   }
@@ -187,7 +289,8 @@ function bindPage() {
     document.querySelector("#confirm-reset").onclick = () => {
       const saved = resetData();
       resetSupplementalViews();
-      distributionView.tab="entry";distributionView.draft=null;
+      distributionView.tab = "history";
+      distributionView.draft = null;
       modal.close();
       Object.assign(view, {
         period: "current",
@@ -275,8 +378,21 @@ document.querySelector("#notifications").onclick = () => {
     `<div class="notice">Tanggal acuan: ${date(today())}.</div><div class="notification-item">${icon("clock")}<div><strong>${late.length} invoice melewati jatuh tempo</strong><p>Total sisa tagihan ${rupiah(late.reduce((s, i) => s + invoiceBalance(i, data), 0))}. Buka detail invoice pada dashboard untuk melihat rinciannya.</p></div></div><div class="notification-item">${icon("check")}<div><strong>Data demo siap digunakan</strong><p>${data.distributions.length} transaksi distribusi dan ${data.customers.length} customer tersedia pada perangkat ini.</p></div></div>`,
   );
 };
-document.querySelector("#profile").onclick = () => {const s=getData().settings;showModal('Profil pengguna',`<div class="profile-detail"><span class="avatar">${escapeHTML(s.user.slice(0,2).toUpperCase())}</span><h3>${escapeHTML(s.user)}</h3><p>Administrator · ${escapeHTML(s.name)}</p></div><div class="notice">Pengguna kedua: ${escapeHTML(s.secondUser)}. Kedua pengguna memiliki akses Administrator. Autentikasi belum diterapkan.</div>`);};
-document.querySelector('[data-route="distribution"]').addEventListener('click',()=>{if(route==='distribution'&&distributionView.tab!=='entry'){distributionView.tab='entry';render();}});
+document.querySelector("#profile").onclick = () => {
+  const s = getData().settings;
+  showModal(
+    "Profil pengguna",
+    `<div class="profile-detail"><span class="avatar">${escapeHTML(s.user.slice(0, 2).toUpperCase())}</span><h3>${escapeHTML(s.user)}</h3><p>Administrator · ${escapeHTML(s.name)}</p></div><div class="notice">Pengguna kedua: ${escapeHTML(s.secondUser)}. Kedua pengguna memiliki akses Administrator. Autentikasi belum diterapkan.</div>`,
+  );
+};
+document
+  .querySelector('[data-route="distribution"]')
+  .addEventListener("click", () => {
+    if (route === "distribution" && distributionView.tab !== "history") {
+      distributionView.tab = "history";
+      render();
+    }
+  });
 document.querySelector("#help").onclick = () =>
   showModal(
     "Tentang prototipe DMS",
